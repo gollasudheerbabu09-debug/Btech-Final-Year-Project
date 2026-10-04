@@ -1,0 +1,8 @@
+step,rows
+raw rows,1140677
+merged duplicate scenes (same point; same date),181386
+removed: NDVI/NDBI/NDWI outside [-1; 1],5000
+removed: LST outside 10–70 °C,304
+removed: scenes with < 400 clear points (85 city-dates),17474
+removed: LST > 4 robust SD from its scene (cloud edges),5936
+final rows,930577

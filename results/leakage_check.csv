@@ -1,0 +1,4 @@
+setup,r,R2,MAE,RMSE
+Random split + coordinates,0.9374,0.878,1.7399,2.4616
+Spatial split + coordinates,0.9124,0.8299,1.9846,2.8154
+"Spatial split, no coordinates (used)",0.9058,0.8172,2.0479,2.9186

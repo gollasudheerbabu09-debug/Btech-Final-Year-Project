@@ -1,0 +1,2 @@
+model,agreement_pct,suhi_precision_pct,suhi_recall_pct,ref_suhi_pct,pred_suhi_pct
+SVM,76.77,63.31,67.21,32.38,34.37

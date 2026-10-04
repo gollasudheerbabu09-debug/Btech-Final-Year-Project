@@ -1,0 +1,5 @@
+season,scenes,ref_mean_suhi,ref_mean_non_suhi,pred_mean_suhi,pred_mean_non_suhi,agreement_pct,ref_difference,pred_difference
+Monsoon,111,45.28,39.19,44.91,39.3,76.9,6.08,5.61
+Post-monsoon,147,36.15,32.32,35.81,32.47,75.49,3.83,3.34
+Summer,226,45.36,39.73,44.63,40.1,79.2,5.63,4.53
+Winter,160,36.16,31.95,35.64,32.01,78.58,4.21,3.63
