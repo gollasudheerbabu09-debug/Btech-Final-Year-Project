@@ -1,0 +1,259 @@
+{
+  "sklearn_version": "1.8.0",
+  "target": "LST",
+  "feature_set": "Set 4",
+  "feature_set_desc": "+ air quality (all variables)",
+  "numeric_features": [
+    "NDVI",
+    "NDBI",
+    "NDWI",
+    "SAVI",
+    "BU",
+    "soil_moisture",
+    "Roughness",
+    "Slope",
+    "GHI",
+    "CH4",
+    "CO",
+    "HCHO",
+    "NO2",
+    "O3",
+    "SO2"
+  ],
+  "categorical_features": [
+    "season",
+    "lulc_classes",
+    "LandUse"
+  ],
+  "categories": {
+    "season": [
+      "Monsoon",
+      "Post-monsoon",
+      "Summer",
+      "Winter"
+    ],
+    "lulc_classes": [
+      "10",
+      "20",
+      "30",
+      "40",
+      "50",
+      "60",
+      "80",
+      "90"
+    ],
+    "LandUse": [
+      "bare",
+      "built",
+      "crops",
+      "flooded_vegetation",
+      "grass",
+      "shrub_and_scrub",
+      "snow_and_ice",
+      "trees",
+      "unknown",
+      "water"
+    ]
+  },
+  "feature_stats": {
+    "NDVI": {
+      "min": -0.24798609286990292,
+      "max": 0.8556757087934379,
+      "median": 0.4225201857992318
+    },
+    "NDBI": {
+      "min": -0.4968695811458306,
+      "max": 0.3135624032982313,
+      "median": -0.06783254576445
+    },
+    "NDWI": {
+      "min": -0.7631286341993024,
+      "max": 0.6390534315626185,
+      "median": -0.4434552799486541
+    },
+    "SAVI": {
+      "min": -0.0323746794406785,
+      "max": 0.5956112215096475,
+      "median": 0.2525786356921214
+    },
+    "BU": {
+      "min": -1.2879281476194284,
+      "max": 0.3256146745293425,
+      "median": -0.4766491894653448
+    },
+    "soil_moisture": {
+      "min": 0.07528051,
+      "max": 0.46893597,
+      "median": 0.21941471
+    },
+    "Roughness": {
+      "min": 0.0,
+      "max": 55.0,
+      "median": 3.0
+    },
+    "Slope": {
+      "min": 0.0,
+      "max": 36.154305,
+      "median": 2.0867307
+    },
+    "GHI": {
+      "min": 0.0,
+      "max": 7.48847,
+      "median": 6.0548263
+    },
+    "CH4": {
+      "min": 1855.3737,
+      "max": 1975.4469,
+      "median": 1921.0472
+    },
+    "CO": {
+      "min": 0.02433728955,
+      "max": 0.05839339092000023,
+      "median": 0.041561067
+    },
+    "HCHO": {
+      "min": 5.0546263e-05,
+      "max": 0.00031184374230000013,
+      "median": 0.00016751981
+    },
+    "NO2": {
+      "min": 1.3213403e-05,
+      "max": 0.00013426885340000002,
+      "median": 3.87364925e-05
+    },
+    "O3": {
+      "min": 0.106302737205,
+      "max": 0.12933458,
+      "median": 0.11977613
+    },
+    "SO2": {
+      "min": -0.00024248406,
+      "max": 0.0004886793675000005,
+      "median": 0.000123796915
+    }
+  },
+  "suhi_threshold_by_city_season": {
+    "Guntur|Monsoon": 46.06,
+    "Guntur|Post-monsoon": 35.93,
+    "Guntur|Summer": 46.82,
+    "Guntur|Winter": 36.32,
+    "Nellore|Monsoon": 44.36,
+    "Nellore|Post-monsoon": 35.52,
+    "Nellore|Summer": 43.83,
+    "Nellore|Winter": 35.2,
+    "Tirupati|Monsoon": 38.31,
+    "Tirupati|Post-monsoon": 33.97,
+    "Tirupati|Summer": 42.08,
+    "Tirupati|Winter": 34.44,
+    "Vijayawada|Monsoon": 41.74,
+    "Vijayawada|Post-monsoon": 35.13,
+    "Vijayawada|Summer": 42.84,
+    "Vijayawada|Winter": 34.86,
+    "Visakhapatnam|Monsoon": 41.03,
+    "Visakhapatnam|Post-monsoon": 33.41,
+    "Visakhapatnam|Summer": 39.85,
+    "Visakhapatnam|Winter": 32.28
+  },
+  "suhi_threshold_by_season": {
+    "Monsoon": 42.82,
+    "Post-monsoon": 34.94,
+    "Summer": 43.57,
+    "Winter": 34.81
+  },
+  "cities": [
+    "Guntur",
+    "Nellore",
+    "Tirupati",
+    "Vijayawada",
+    "Visakhapatnam"
+  ],
+  "best_model": "RF",
+  "model_names": {
+    "LR": "Linear Regression",
+    "KNN": "K-Nearest Neighbors (k=5)",
+    "DT": "Decision Tree",
+    "RF": "Random Forest",
+    "MLP": "Multilayer Perceptron",
+    "SVM": "Support Vector Machine (SVR)"
+  },
+  "model_size_mb": {
+    "LR": 0.0,
+    "KNN": 19.0,
+    "DT": 0.6,
+    "RF": 16.5,
+    "MLP": 0.1,
+    "SVM": 1.6
+  },
+  "rows_used": 200000,
+  "train_rows": 158767,
+  "test_rows": 41233,
+  "app_sample_rows": 39739,
+  "test_metrics": {
+    "LR": {
+      "r": 0.788,
+      "R2": 0.621,
+      "MAE": 3.111,
+      "RMSE": 4.204
+    },
+    "KNN": {
+      "r": 0.9,
+      "R2": 0.808,
+      "MAE": 2.068,
+      "RMSE": 2.992
+    },
+    "DT": {
+      "r": 0.906,
+      "R2": 0.817,
+      "MAE": 2.048,
+      "RMSE": 2.919
+    },
+    "RF": {
+      "r": 0.927,
+      "R2": 0.859,
+      "MAE": 1.836,
+      "RMSE": 2.563
+    },
+    "MLP": {
+      "r": 0.865,
+      "R2": 0.745,
+      "MAE": 2.519,
+      "RMSE": 3.447
+    },
+    "SVM": {
+      "r": 0.822,
+      "R2": 0.675,
+      "MAE": 2.772,
+      "RMSE": 3.892
+    }
+  },
+  "leakage_check": [
+    {
+      "setup": "Random split + coordinates",
+      "r": 0.937,
+      "R2": 0.878,
+      "MAE": 1.74,
+      "RMSE": 2.462
+    },
+    {
+      "setup": "Spatial split + coordinates",
+      "r": 0.912,
+      "R2": 0.83,
+      "MAE": 1.985,
+      "RMSE": 2.815
+    },
+    {
+      "setup": "Spatial split, no coordinates (used)",
+      "r": 0.906,
+      "R2": 0.817,
+      "MAE": 2.048,
+      "RMSE": 2.919
+    }
+  ],
+  "suhi_comparison": {
+    "agreement_pct": 77.84,
+    "suhi_precision_pct": 67.06,
+    "suhi_recall_pct": 67.19,
+    "ref_suhi_pct": 33.67,
+    "pred_suhi_pct": 33.74
+  }
+}
