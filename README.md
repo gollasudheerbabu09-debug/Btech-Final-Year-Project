@@ -7,7 +7,7 @@ Method based on Furuya et al. (2023), *A machine learning approach for mapping s
 environmental and socioeconomic variables*, Environmental Earth Sciences 82:325,
 https://doi.org/10.1007/s12665-023-11017-8
 
-**Live app:** `https://<your-app>.streamlit.app` (add after deploying)
+**Live app:**https://btech-final-year-project-n5eoyjnajtalwcknxehl27.streamlit.app/)
 
 ## Data
 
