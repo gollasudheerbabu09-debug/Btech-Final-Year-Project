@@ -1,241 +1,147 @@
-[README.md](https://github.com/user-attachments/files/31774762/README.md)
-# Surface Urban Heat Island (SUHI) Prediction for Smart-City Planning
+# Surface Urban Heat Islands in Andhra Pradesh with Machine Learning
 
-An end-to-end machine learning framework that predicts **Land Surface Temperature (LST)** from satellite-derived spectral indices, then flags Surface Urban Heat Island zones and renders them on an interactive map. Six regression models are benchmarked on a shared split over **1.97 million geospatial pixels**, and the best performer is deployed behind a working prediction and mapping pipeline.
+Predicting **land surface temperature (LST)** for five Andhra Pradesh cities from satellite, climate, terrain,
+land-use and air-quality data with six machine-learning models, and mapping **surface urban heat islands (SUHI)**.
 
----
+Method based on Furuya et al. (2023), *A machine learning approach for mapping surface urban heat island using
+environmental and socioeconomic variables*, Environmental Earth Sciences 82:325,
+https://doi.org/10.1007/s12665-023-11017-8
 
-## Highlights
+**Live app:** `https://<your-app>.streamlit.app` (add after deploying)
 
-- Built an **end-to-end ML framework for smart-city planning**, predicting Land Surface Temperature from Landsat 8-derived spectral indices and geospatial coordinates across **1,973,361 pixel records**
-- **Benchmarked six regressors on a single shared 80/20 split** — Linear Regression, KNN (k=5, distance-weighted), MLP neural network, SVR, Decision Tree, and Random Forest — evaluated on a common MAE / RMSE / R² protocol
-- **Decision Tree delivered the best performance** (MAE 0.00 °C, RMSE 0.07 °C), with Random Forest and KNN close behind, while Linear Regression confirmed the LST surface is strongly non-linear
-- Extended prediction into a **SUHI detection layer** — statistical thresholding on predicted LST plus a **Folium interactive map** marking heat-island hotspots by coordinate
-- Serialized all six trained models for reuse and built a **single-point and batch inference pipeline** for planning scenarios
+## Data
 
----
+Extracted with Google Earth Engine (`gee/extract_suhi_features.js`): about 2,000 fixed points per city, measured on
+every clear Landsat 8/9 date from 2019 to 2024.
 
-## Problem
+| City | Rows (clean) | Scenes | Mean LST (°C) |
+|---|---|---|---|
+| Guntur | 200,408 | 170 | 40.7 |
+| Nellore | 241,499 | 177 | 39.3 |
+| Tirupati | 174,628 | 102 | 36.5 |
+| Vijayawada | 142,491 | 91 | 37.9 |
+| Visakhapatnam | 171,551 | 104 | 34.3 |
+| **Total** | **930,577** | **644** | |
 
-Urban surfaces — asphalt, concrete, roofing — absorb and re-radiate far more solar energy than vegetation or water. The result is the **Surface Urban Heat Island** effect: built-up zones running measurably hotter than their surroundings, driving up cooling demand, worsening air quality, and raising heat-stress mortality.
-
-City planners need to answer a specific question: *if we develop this parcel, how hot does it get?* That requires predicting LST from land-surface characteristics rather than waiting for the next satellite pass — which is exactly what this framework does.
-
----
-
-## Dataset
-
-| Property | Value |
+| Column | Source |
 |---|---|
-| Records | **1,973,361** pixels |
-| Columns | 25 |
-| Target | `LST` (Land Surface Temperature, °C) |
-| Spatial coverage | Milan region (≈ 9.24° E, 45.42° N) |
-| Missing values | None |
+| LST (target) | Landsat 8/9 Collection 2 Level 2, band ST_B10 (°C) |
+| NDVI, NDBI, NDWI, SAVI, BU | Landsat surface reflectance, same scene (BU = NDBI − NDVI) |
+| soil_moisture, GHI | ERA5-Land daily (m³/m³; kWh/m²/day) |
+| Slope, Roughness | SRTM 30 m elevation (degrees; m) |
+| lulc_classes, LandUse | ESA WorldCover 2021 code; Google Dynamic World class (±15 days) |
+| CH4, CO, HCHO, NO2, O3, SO2 | Sentinel-5P (±15 days; CH4 ±30 days) |
+| season | IMD: Winter (Jan–Feb), Summer (Mar–May), Monsoon (Jun–Sep), Post-monsoon (Oct–Dec) |
+| UHI, UTFVI | (LST − mean)/SD and (LST − mean)/LST per city and date. **Not used as inputs** (derived from LST) |
+| Longitude, Latitude, Zone | point location (used only for splitting and maps) |
 
-The full table carries 25 columns spanning four families:
+**Cleaning** (`src/prepare_dataset.py`, `results/cleaning_report.csv`): from 1,140,677 raw rows, 181,386 duplicates
+from overlapping Landsat scenes were averaged; 5,000 rows with NDVI/NDBI/NDWI outside [−1, 1], 304 with LST outside
+10–70 °C, 85 mostly cloudy scenes (17,474 rows) and 5,936 cloud-edge outliers were removed. Missing values
+(mainly CH4, 43%) are filled with the training median inside each model.
 
-**Spectral indices** — `NDVI` (vegetation), `NDBI` (built-up), `NDWI` (water), `SAVI` (soil-adjusted vegetation), `BU` (built-up index)
+## Method
 
-**Surface and terrain** — `soil_moisture`, `Roughness`, `Slope`, `lulc_classes`, `LandUse`, `Amenity`
-
-**Thermal and derived** — `LST`, `UHI`, `UTFVI` (Urban Thermal Field Variance Index)
-
-**Atmospheric (Sentinel-5P)** — `CH4`, `CO`, `HCHO`, `NO2`, `O3`, `SO2`, `GHI`
-
-**Geospatial** — `Longitude`, `Latitude`, `Zone`, `geometry`
-
-### Feature selection
-
-Seven predictors were used:
-
-```python
-features = ['soil_moisture', 'NDBI', 'NDVI', 'NDWI', 'SAVI', 'Longitude', 'Latitude']
-X = data[features]
-y = data['LST']
-```
-
-`UHI` and `UTFVI` were deliberately excluded — both are computed *from* LST, so including them would be direct target leakage. The four spectral indices are the physically meaningful drivers: NDBI rises with impervious surface (hotter), NDVI rises with vegetation (cooler through evapotranspiration), NDWI marks water bodies (coolest), and SAVI corrects NDVI for soil background in sparsely vegetated areas.
-
----
-
-## Exploratory Analysis
-
-Before modeling, the feature space was profiled from several angles:
-
-- **Histograms and KDE plots** — per-feature distributions and skew
-- **Correlation heatmap** — inter-feature relationships across all 7 predictors plus LST
-- **Pairplot** — pairwise scatter across the full feature set
-- **Boxplots and violin plots** — outlier detection and density shape
-- **Correlation bar chart** — each feature's direct correlation with LST, ranked
-- **Hexbin plot** — Longitude vs LST density, exposing the spatial temperature gradient
-
-The hexbin and correlation views are the ones that matter most here: they show LST varies systematically with location, which sets up both the strength and the central caveat of the results below.
-
----
-
-## Modeling
-
-All models are trained and evaluated on the **same split**, so the comparison is like-for-like:
-
-```python
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-```
-
-That yields ~1.58M training and ~394K test pixels.
-
-| Model | Configuration | Scaling |
-|---|---|---|
-| Decision Tree | `DecisionTreeRegressor(random_state=42)` | None (scale-invariant) |
-| Random Forest | `n_estimators=100, random_state=42` | MinMax |
-| KNN | `n_neighbors=5, weights='distance'` | MinMax (required) |
-| Linear Regression | default OLS | MinMax |
-| MLP | `Dense(64, relu) → Dropout(0.2) → Dense(32, relu) → Dense(1)`, Adam, MSE, 100 epochs, batch 32, 10% val split | MinMax |
-| SVR | `kernel='rbf', C=100, gamma='scale', epsilon=0.1` | MinMax |
-
-KNN uses `weights='distance'` rather than uniform voting, so nearer neighbors dominate the prediction — appropriate when the underlying surface is spatially smooth. SVR was trained on a **150,000-sample subset**, since RBF-kernel SVR scales roughly quadratically and does not run on 1.58M rows in reasonable time.
-
----
+- **Models:** Linear Regression, K-Nearest Neighbors (k = 5), Decision Tree, Random Forest (100 trees), Multilayer
+  Perceptron (64-32), Support Vector Machine (RBF SVR, trained on 15,000 rows). Inputs are Min-Max scaled to [0, 1]
+  inside each saved model (as in the paper); categories are one-hot encoded.
+- **Feature sets** (each adds one group): Set 1 spectral indices + season → Set 2 + surface, terrain, climate →
+  Set 3 + land cover/use → Set 4 + air quality.
+- **Evaluation:** 200,000 sampled rows. Points were grouped into ~1 km blocks and 20% of blocks (with all their
+  dates) were held out, so the test measures **places never seen in training**. 5-fold spatial cross-validation
+  on the training part. Extra tests: an **unseen city** and an **unseen year**.
+- **SUHI:** a point is a heat island when LST > mean + 0.5 × SD of its city on that date (paper Eq. 7–8).
 
 ## Results
 
-Evaluated on the held-out ~394K-pixel test set:
+**Test R² on unseen places**
 
-| Rank | Model | MAE (°C) | RMSE (°C) | R² |
+| Model | Set 1 | Set 2 | Set 3 | Set 4 |
 |---|---|---|---|---|
-| 1 | **Decision Tree** | **0.02** | **0.07** | **1.00** |
-| 2 | Random Forest | 0.05 | 0.04 | 1.00 |
-| 3 | KNN (k=5) | 0.04 | 0.23 | 0.99 |
-| 4 | MLP | 0.92 | 1.21 | 0.75 |
-| 5 | SVR | 1.08 | 1.52 | 0.61 |
-| 6 | Linear Regression | 1.46 | 1.99 | 0.34 |
+| Linear Regression | 0.53 | 0.56 | 0.56 | 0.62 |
+| KNN (k = 5) | 0.52 | 0.72 | 0.70 | 0.81 |
+| Decision Tree | 0.47 | 0.81 | 0.80 | 0.82 |
+| **Random Forest** | 0.59 | 0.82 | 0.82 | **0.86** |
+| MLP | 0.58 | 0.66 | 0.65 | 0.75 |
+| SVM | 0.56 | 0.61 | 0.61 | 0.68 |
 
-Results were assembled into a ranking table sorted by R², then MAE, then RMSE, and visualized as grouped bar charts across all three metrics. Every model also has an **actual-vs-predicted scatter plot** against the 45° perfect-prediction line.
+Best: **Random Forest, all variables: R² 0.86, MAE 1.84 °C, RMSE 2.56 °C**. Tree-based models perform best, as in
+the paper. Climate variables (Set 2) give the largest gain because they describe the weather of each day.
 
-### Reading the results
+**Heat islands:** maps from predicted LST agree with satellite-based maps for **77.8%** of test points. Heat islands
+are hotter than other places in every season:
 
-**Linear Regression at R² = 0.34 is the most informative number in the table.** A linear model explains only a third of the variance in LST, which establishes that the relationship between spectral indices and surface temperature is strongly **non-linear** — exactly what the physics predicts, since evapotranspiration, thermal admittance, and surface albedo all interact rather than add.
+| Season | Satellite: SUHI − non-SUHI | Predicted |
+|---|---|---|
+| Monsoon | +6.1 °C | +5.6 °C |
+| Summer | +5.6 °C | +4.5 °C |
+| Winter | +4.2 °C | +3.6 °C |
+| Post-monsoon | +3.8 °C | +3.3 °C |
 
-**The tree-based models and KNN cluster at the top,** which is consistent with a target surface that is locally smooth but globally non-linear. Trees partition the feature space into regions and fit a constant within each; KNN averages nearby observations. Both suit this structure far better than a global linear fit or an RBF kernel with a single bandwidth.
+**Unseen city** (trained on the other four): best R² 0.68 (Vijayawada, RF) and 0.61 (Guntur, RF); Tirupati is the
+hardest (≤ 0.30), likely because of its hilly terrain and different climate.
 
-**The MLP at R² = 0.75 underperforms the trees** despite 100 epochs on 1.58M samples. With only 7 input features and a target that is close to a spatial lookup, the network's advantage — learning distributed representations of high-dimensional input — has little to work with here.
+**Unseen year** (trained 2019–2023, tested on 2024): SVM R² 0.64, Linear Regression 0.63, Random Forest 0.62,
+MLP 0.55, KNN 0.47, Decision Tree 0.41; heat-island agreement 76.8%. Simpler models generalise better over time,
+while single trees and KNN partly memorise date-specific weather.
 
-### An important caveat on R² ≈ 1.00
+**Most influential variables** (permutation importance): O₃ (follows season and weather), NDBI (built-up
+surfaces) and solar radiation (GHI).
 
-Decision Tree and Random Forest reaching MAE ≈ 0.00 °C and R² = 1.00 should be read carefully rather than taken at face value.
+**Leakage check:** a random split gives R² 0.88 against 0.82 with the spatial split (Decision Tree), so the honest
+spatial evaluation is used throughout.
 
-`Longitude` and `Latitude` are among the seven features, and the dataset contains many pixels sharing identical or near-identical index values (adjacent pixels in a raster are highly autocorrelated — visible in the raw data, where consecutive rows repeat the same LST and NDVI values). With a **random pixel-level split**, a neighboring pixel of nearly every test point ends up in the training set. An unconstrained tree can then learn something close to a coordinate lookup table rather than a physical relationship between land cover and temperature.
+Figures in `results/figures/`; all numbers in `results/*.csv`.
 
-This does not mean the models are broken — they are highly accurate *at interpolating within the mapped region*, which is genuinely useful for filling gaps and for the scenario tool below. But it means the reported R² should not be read as the model's ability to generalize to an unmapped city.
-
-A more demanding protocol would:
-
-- **Split spatially** — hold out contiguous blocks or grid tiles rather than random pixels
-- **Drop `Longitude` / `Latitude`** and force the model to predict from land-surface characteristics alone
-- **Hold out a separate zone** using the existing `Zone` column, and report cross-zone performance
-
-Reporting both the interpolation score and a spatial-holdout score would make the framework substantially stronger. This is the clearest next step for the project.
-
----
-
-## SUHI Detection
-
-Prediction is the input to the actual planning output: identifying which locations qualify as heat islands.
-
-Predicted LST is thresholded statistically, so the definition adapts to the local temperature distribution rather than depending on a fixed absolute cutoff:
-
-```python
-threshold = mean_lst + 0.5 * std_lst
-df['Is_SUHI'] = df['Predicted_LST'] > threshold
-```
-
-Any pixel more than half a standard deviation above the regional mean is flagged as a Surface Urban Heat Island.
-
-Flagged locations are then rendered on an interactive **Folium** map with `MarkerCluster`, color-coded — red for SUHI, green for normal — with popups showing predicted temperature and classification:
-
-```python
-color = 'red' if row['Is_SUHI'] else 'green'
-folium.CircleMarker(
-    location=[row['Latitude'], row['Longitude']],
-    radius=7, color=color, fill=True, fill_color=color,
-    fill_opacity=0.7,
-    popup=folium.Popup(f"LST: {row['Predicted_LST']:.2f} °C<br>SUHI: {row['Is_SUHI']}")
-).add_to(marker_cluster)
-```
-
-This is what makes the project a planning tool rather than a benchmark: a planner supplies candidate parcels, gets predicted temperatures, and sees the heat-island risk rendered geographically.
-
----
-
-## Inference Pipeline
-
-All six models are serialized (`pickle` for the scikit-learn models, `.keras` for the MLP) and reloaded for prediction:
-
-```
-decision_tree_model.pkl      random_forest_model.pkl  +  rf_scaler.pkl
-knn_model.pkl                lr_model.pkl
-svr_model_limited.pkl  +  svr_scaler_limited.pkl      mlp_model.keras  +  mlp_scaler.pkl
-```
-
-Three inference modes are implemented:
-
-1. **Multi-model comparison** — one input vector scored by all six models side by side
-2. **Interactive input** — prompts for the seven feature values and returns a Decision Tree prediction
-3. **Batch scenario scoring** — an array of candidate sites scored at once, thresholded for SUHI, and mapped
-
-```python
-input_values = [soil_moisture, ndbi, ndvi, ndwi, savi, longitude, latitude]
-pred = dt_model.predict(np.array(input_values).reshape(1, -1))[0]
-print(f"Decision Tree Prediction: {pred:.2f} °C")
-```
-
-The Decision Tree is the deployed model — it is the top performer and needs no scaler at inference time, since trees are invariant to monotonic feature scaling.
-
----
-
-## Tech Stack
-
-| Category | Tools |
-|---|---|
-| Data | pandas, NumPy |
-| Classical ML | scikit-learn (DecisionTree, RandomForest, KNN, LinearRegression, SVR) |
-| Deep Learning | TensorFlow / Keras (MLP) |
-| Preprocessing | MinMaxScaler |
-| Visualization | Matplotlib, Seaborn |
-| Geospatial | Folium, MarkerCluster |
-| Persistence | pickle, joblib |
-| Environment | Kaggle Notebooks |
-
----
-
-## Running It
+## Run it
 
 ```bash
-pip install pandas numpy scikit-learn tensorflow matplotlib seaborn folium joblib
+pip install -r requirements.txt
+streamlit run app.py                         # web app, http://localhost:8501
 ```
 
-Open `finalyearprojectsuhi.ipynb` and run top to bottom. The notebook covers EDA → model training and benchmarking → serialization → inference → SUHI thresholding → interactive map.
+Rebuild everything from the Earth Engine exports (keep the large CSVs on Google Drive, not GitHub):
 
-Point the `pd.read_csv(...)` path at your local copy of `combined_v2.csv` and update the model-loading paths in the inference cells.
+```bash
+python -m src.prepare_dataset "exports/suhi_features_*.csv"   # -> data/andhra_pradesh_suhi.csv
+python -m src.train                                           # models, results, figures (~1 h)
+python -m src.temporal_test                                   # unseen-year test
+python -m src.predict my_points.csv --model RF                # batch predictions + SUHI labels
+```
 
----
+Optional: `pip install osmnx geopandas` and `python -m src.prepare_dataset ... --osm` adds `Amenity` (nearest
+OpenStreetMap amenity) for a column-for-column match with the original Kaggle dataset.
 
-## Known Limitations & Next Steps
+## Deploy (free, public)
 
-- **Random rather than spatial split.** The single most important fix; see the caveat section above. Adding a spatial-holdout evaluation alongside the current numbers would make the reported performance defensible for unseen regions.
-- **Scaler handling at inference.** Several inference cells fit a fresh `MinMaxScaler` on the single input sample being predicted. Fitting a scaler on one row maps every feature to the same value, so scaled models receive degenerate input — which is why the per-model predictions for one identical input diverge so widely. The saved `rf_scaler.pkl`, `mlp_scaler.pkl`, and `svr_scaler_limited.pkl` should be loaded and applied instead. The Decision Tree path is unaffected, since it needs no scaling.
-- **Seven of twenty-five columns used.** The atmospheric variables (`NO2`, `CO`, `O3`, `SO2`), terrain (`Slope`, `Roughness`), and land-use classes are all available and unused. Adding them — with feature-importance analysis — is a natural extension.
-- **Single region, single time point.** Trained on one metropolitan area. Cross-city validation would test whether the learned relationships transfer.
-- **No hyperparameter tuning.** All models use near-default settings. Given the tree models already saturate on this split, tuning matters most once a spatial split is in place.
+1. Upload this repository to GitHub (all files are under the 25 MB browser-upload limit).
+2. https://share.streamlit.io → Create app → this repository, branch `main`, file `app.py`.
+3. Advanced settings → Python 3.12 → Deploy.
 
----
+If the saved models cannot be loaded on the server, the app retrains them automatically from `data/app_sample.csv`.
 
-## What This Project Demonstrates
+## Repository
 
-- **Large-scale tabular ML** — a full pipeline over ~2 million geospatial records
-- **Domain-informed feature selection** — recognizing `UHI` / `UTFVI` as LST-derived and excluding them to prevent target leakage
-- **Systematic model benchmarking** on a shared split with a common metric protocol, spanning linear, instance-based, kernel, tree, ensemble, and neural approaches
-- **Interpreting results physically** — reading Linear Regression's R² = 0.34 as evidence of non-linearity rather than as a failed run
-- **Critical evaluation** — identifying spatial autocorrelation as the likely source of a near-perfect score, and specifying the protocol that would test it properly
-- **Geospatial visualization and deployment** — statistical SUHI thresholding and interactive Folium mapping
-- **End-to-end delivery** — from raw satellite-derived data through to a working scenario-scoring tool
+```
+├── app.py                          Streamlit web app
+├── gee/extract_suhi_features.js    Google Earth Engine data extraction
+├── src/
+│   ├── prepare_dataset.py          merge + clean Earth Engine exports
+│   ├── train.py                    experiments, figures, saved models
+│   ├── temporal_test.py            unseen-year test
+│   ├── config.py · data.py · models.py · suhi.py · predict.py
+├── models/                         six trained models + metadata.json
+├── data/app_sample.csv             complete scenes per city for the app map
+└── results/                        metrics, cleaning report, figures
+```
+
+## Limitations
+
+- Daytime only (Landsat passes ~10:30 local time).
+- Sentinel-5P and ERA5 layers are coarse (km scale) and partly act as date/location signals.
+- Amenity (OpenStreetMap) was not included in the trained models.
+- Transfer to a new city works moderately (R² 0.24–0.68); retrain before applying elsewhere.
+
+## License
+
+MIT. Please cite Furuya et al. (2023) for the method.
