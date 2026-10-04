@@ -3,6 +3,7 @@ machine-learning models and map surface urban heat islands.
 
 Run locally:  streamlit run app.py
 """
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -99,15 +100,27 @@ with tab_map:
             st.caption("These built-in points include places the models were trained on, so agreement here is "
                        "optimistic. Scores on unseen places are in 'Compare models'.")
         if set(C.COORDS) <= set(out.columns):
+            street = st.toggle("Street-map background (needs WebGL; turn off if the map stays grey)", value=False)
+
             def draw(d, flag, title):
                 d = d.assign(Status=d[flag].map({True: "Heat island", False: "Not a heat island"}))
-                fig = px.scatter_map(d, lat="Latitude", lon="Longitude", color="Status", zoom=11, height=480,
-                                     map_style="carto-positron",
-                                     color_discrete_map={"Heat island": HEAT, "Not a heat island": COOL},
-                                     hover_data={f"pred_{key}": ":.1f", "Latitude": False, "Longitude": False,
-                                                 **({C.TARGET: ":.1f"} if has_ref else {})})
-                fig.update_traces(marker={"size": 7, "opacity": 0.8})
-                fig.update_layout(margin=dict(l=0, r=0, t=30, b=0), title=title, legend_title_text="")
+                hover = {f"pred_{key}": ":.1f", "Latitude": False, "Longitude": False,
+                         **({C.TARGET: ":.1f"} if has_ref else {})}
+                cmap = {"Heat island": HEAT, "Not a heat island": COOL}
+                if street:
+                    fig = px.scatter_map(d, lat="Latitude", lon="Longitude", color="Status", zoom=11, height=480,
+                                         map_style="open-street-map", color_discrete_map=cmap, hover_data=hover)
+                    fig.update_traces(marker={"size": 7, "opacity": 0.8})
+                else:   # plain chart: always renders
+                    fig = px.scatter(d, x="Longitude", y="Latitude", color="Status", height=480,
+                                     color_discrete_map=cmap, hover_data=hover)
+                    fig.update_traces(marker={"size": 6, "opacity": 0.85})
+                    fig.update_yaxes(scaleanchor="x", scaleratio=1 / np.cos(np.radians(d.Latitude.mean())),
+                                     showgrid=False, title=None, tickformat=".2f")
+                    fig.update_xaxes(showgrid=False, title=None, tickformat=".2f")
+                    fig.update_layout(plot_bgcolor="#EEF2F5")
+                fig.update_layout(margin=dict(l=0, r=0, t=30, b=0), title=title, legend_title_text="",
+                                  legend=dict(orientation="h", y=-0.08))
                 return fig
             if has_ref:
                 a, b = st.columns(2)
